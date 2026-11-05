@@ -17,16 +17,20 @@ pip install -r requirements.txt
 
 ollama serve                      # must be running; main.py talks to localhost:11434
 ollama pull qwen3.5:4b
+export LLM_BASE_URL=http://localhost:11434/v1 LLM_API_KEY=ollama   # required by both scripts
 
 python main.py                    # interactive tool-calling chat; type 'exit' to quit
+python web_reader.py              # fetch a URL, extract it with trafilatura, run an instruction on it
 python test-token.py              # tiktoken encode/decode demo
 ```
+
+`web_reader.py` sends the page inside `<webpage>` tags, marked as untrusted, and caps it at `MAX_CONTENT_CHARS`, because Ollama silently truncates input that overflows the 32k context it loads. It disables Qwen's thinking with `reasoning_effort="none"`. It is not a tool the model can call; if it becomes one, block private and local addresses first.
 
 There is no test suite, linter or build step.
 
 ## main.py architecture
 
-A single-file tool-calling agent that uses the `openai` SDK against Ollama's OpenAI-compatible endpoint (`base_url=http://localhost:11434/v1`, dummy `api_key="ollama"`).
+A single-file tool-calling agent that uses the `openai` SDK against Ollama's OpenAI-compatible endpoint (URL and key read from `LLM_BASE_URL` and `LLM_API_KEY`).
 
 Adding a tool takes two edits, which must stay in sync:
 1. Add the Python function and register it in `AVAILABLE_FUNCTIONS` (name → callable).

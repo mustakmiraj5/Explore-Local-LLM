@@ -21,17 +21,24 @@ pip install -r requirements.txt
 
 ollama pull qwen3.5:4b
 ollama serve        # skip if the Ollama app is already running
+
+export LLM_BASE_URL=http://localhost:11434/v1
+export LLM_API_KEY=ollama   # Ollama ignores the key, but the client requires one
 ```
+
+Add the two `export` lines to `~/.zshrc` to keep them set in new terminals.
 
 ## Scripts
 
 | Script | What it does |
 |---|---|
 | `main.py` | An interactive chat agent that can call tools to get the current date and time, system info (OS, CPU, RAM) and the current directory. Type `exit` to quit. |
+| `web_reader.py` | Fetches a webpage, extracts its main content, and asks the model to do what you tell it with it (summarize by default, or e.g. "list the 5 most important points"). |
 | `test-token.py` | Encodes and decodes a sentence with `tiktoken` to show how text becomes token IDs. |
 
 ```bash
 python main.py
+python web_reader.py
 python test-token.py
 ```
 

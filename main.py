@@ -12,8 +12,8 @@ import subprocess
 
 # Ollama OpenAI-compatible client
 client = OpenAI(
-    api_key="ollama",
-    base_url="http://localhost:11434/v1"
+    base_url=os.environ["LLM_BASE_URL"],
+    api_key=os.environ["LLM_API_KEY"]
 )
 
 MODEL = "qwen3.5:4b"
