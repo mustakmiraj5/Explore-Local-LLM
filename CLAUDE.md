@@ -38,6 +38,10 @@ Adding a tool takes two edits, which must stay in sync:
 
 `chat()` keeps the whole conversation in one `messages` list and allows up to 5 model↔tool rounds per user turn. Tool results are sent back as `role: "tool"` messages, JSON-encoded. `execute_tool` catches exceptions and returns them to the model as `{"error": ...}`. The date/time tool is hardcoded to `Asia/Dhaka`, and `get_weather` defaults to Dhaka. `get_weather` calls Open-Meteo (no key needed) on fixed URLs with only the city as input, and maps WMO weather codes to text so the model doesn't have to interpret them. Keep new internet tools in this shape, with structured data from a fixed API, rather than letting the model choose URLs.
 
+Tools that shell out use `run_command()`, which returns `""` on failure or timeout so that each field degrades to `null` instead of the whole tool failing. `get_network_info` is macOS-specific (`route`, `networksetup`, `ipconfig`) and reports only the interface on the default route. It leaves out the SSID (macOS redacts it), open connections (need root) and link speed (psutil reports 0 on macOS).
+
+`get_system_info` and `get_network_info` return private data. That's safe only because main.py never reads untrusted content such as webpages or search results. If you add such content, `get_weather`'s `city` argument becomes a way to send data out, so move the private tools to a separate agent.
+
 ## docs/ syllabus
 
 `docs/README.md` is the index and progress tracker for "LLM Fundamentals — Phase 1": 7 topics with numbered lessons (`docs/NN-topic/NN-lesson.md`). The status legend is ✅ done · 🟡 in progress · ⬜ not started.

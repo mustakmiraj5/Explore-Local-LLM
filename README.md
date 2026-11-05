@@ -32,7 +32,7 @@ Add the two `export` lines to `~/.zshrc` to keep them set in new terminals.
 
 | Script | What it does |
 |---|---|
-| `main.py` | An interactive chat agent that can call tools to get the current date and time, the weather for any city (via [Open-Meteo](https://open-meteo.com), no key needed), system info (OS, CPU, RAM) and the current directory. Type `exit` to quit. |
+| `main.py` | An interactive chat agent that can call tools to get the current date and time, the weather for any city (via [Open-Meteo](https://open-meteo.com), no key needed), system info (OS, CPU, RAM), network info (Wi-Fi or Ethernet, local and public IP, gateway, DNS, data usage) and the current directory. Type `exit` to quit. |
 | `web_reader.py` | Fetches a webpage, extracts its main content, and asks the model to do what you tell it with it (summarize by default, or e.g. "list the 5 most important points"). |
 | `test-token.py` | Encodes and decodes a sentence with `tiktoken` to show how text becomes token IDs. |
 

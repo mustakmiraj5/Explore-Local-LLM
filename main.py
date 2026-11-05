@@ -8,6 +8,8 @@ import json
 import platform
 import os
 import psutil
+import re
+import socket
 import subprocess
 
 
@@ -33,21 +35,18 @@ def get_current_datetime():
         "timezone": "Asia/Dhaka"
     }
 
+def run_command(command):
+    # Returns stdout, or "" if the command is missing, fails or takes over 3 seconds
+    try:
+        return subprocess.run(command, capture_output=True, text=True, check=True, timeout=3).stdout
+    except (subprocess.SubprocessError, OSError):
+        return ""
+
 def get_system_info():
     cpu = platform.processor() or "Unknown"
 
     if platform.system() == "Darwin":
-        try:
-            result = subprocess.run(
-                ["sysctl", "-n", "machdep.cpu.brand_string"],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=3
-            )
-            cpu = result.stdout.strip()
-        except (subprocess.SubprocessError, OSError):
-            pass
+        cpu = run_command(["sysctl", "-n", "machdep.cpu.brand_string"]).strip() or cpu
 
     memory = psutil.virtual_memory()
 
@@ -127,6 +126,61 @@ def get_weather(city: str = "Dhaka"):
         }
     }
 
+def get_network_info():
+    # The default route tells us which interface is actually in use (en1, en0, ...)
+    route = run_command(["route", "-n", "get", "default"])
+    route_fields = dict(
+        line.strip().split(": ", 1) for line in route.splitlines() if ": " in line
+    )
+    interface = route_fields.get("interface")
+
+    connection_type = None
+    wifi_security = None
+
+    if interface:
+        ports = run_command(["networksetup", "-listallhardwareports"])
+        match = re.search(rf"Hardware Port: (.+)\nDevice: {re.escape(interface)}\n", ports)
+        connection_type = match.group(1) if match else None
+
+    if connection_type == "Wi-Fi":
+        summary = run_command(["ipconfig", "getsummary", interface])
+        match = re.search(r"^\s*Security : (\S+)", summary, re.MULTILINE)
+        wifi_security = match.group(1) if match else None
+
+    addresses = psutil.net_if_addrs().get(interface or "", [])
+    ipv4 = [a.address for a in addresses if a.family == socket.AF_INET]
+    # Skip link-local fe80:: addresses; they only work on the local network segment
+    ipv6 = [a.address for a in addresses if a.family == socket.AF_INET6 and not a.address.startswith("fe80")]
+
+    try:
+        with open("/etc/resolv.conf") as file:
+            dns_servers = [line.split()[1] for line in file if line.startswith("nameserver")]
+    except OSError:
+        dns_servers = []
+
+    # Doubles as the internet connectivity check
+    try:
+        public_ip = httpx.get("https://api.ipify.org", timeout=5).raise_for_status().text.strip()
+    except httpx.HTTPError:
+        public_ip = None
+
+    traffic = psutil.net_io_counters()
+
+    return {
+        "hostname": socket.gethostname(),
+        "interface": interface,
+        "connection_type": connection_type,
+        "wifi_security": wifi_security,
+        "local_ipv4": ipv4[0] if ipv4 else None,
+        "ipv6": ipv6,
+        "gateway": route_fields.get("gateway"),
+        "dns_servers": dns_servers,
+        "internet_connected": public_ip is not None,
+        "public_ip": public_ip,
+        "data_sent_gb": round(traffic.bytes_sent / (1024 ** 3), 2),
+        "data_received_gb": round(traffic.bytes_recv / (1024 ** 3), 2)
+    }
+
 # -------------------------
 # TOOL REGISTRY
 # -------------------------
@@ -135,7 +189,8 @@ AVAILABLE_FUNCTIONS = {
     "get_current_datetime": get_current_datetime,
     "get_system_info": get_system_info,
     "get_current_directory": get_current_directory,
-    "get_weather": get_weather
+    "get_weather": get_weather,
+    "get_network_info": get_network_info
 }
 
 # -------------------------
@@ -192,6 +247,18 @@ TOOLS: list[ChatCompletionToolParam] = [
                         "description": "City name, e.g. 'Dhaka' or 'London'."
                     }
                 },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_network_info",
+            "description": "Get network information: connection type (Wi-Fi or Ethernet), local and public IP addresses, gateway, DNS servers, internet connectivity and data usage since boot.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
                 "required": []
             }
         }
