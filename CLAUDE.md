@@ -36,7 +36,7 @@ Adding a tool takes two edits, which must stay in sync:
 1. Add the Python function and register it in `AVAILABLE_FUNCTIONS` (name → callable).
 2. Add a matching JSON-schema entry to `TOOLS` (this is what the model sees).
 
-`chat()` keeps the whole conversation in one `messages` list and allows up to 5 model↔tool rounds per user turn. Tool results are sent back as `role: "tool"` messages, JSON-encoded. `execute_tool` catches exceptions and returns them to the model as `{"error": ...}`. The date/time tool is hardcoded to `Asia/Dhaka`.
+`chat()` keeps the whole conversation in one `messages` list and allows up to 5 model↔tool rounds per user turn. Tool results are sent back as `role: "tool"` messages, JSON-encoded. `execute_tool` catches exceptions and returns them to the model as `{"error": ...}`. The date/time tool is hardcoded to `Asia/Dhaka`, and `get_weather` defaults to Dhaka. `get_weather` calls Open-Meteo (no key needed) on fixed URLs with only the city as input, and maps WMO weather codes to text so the model doesn't have to interpret them. Keep new internet tools in this shape, with structured data from a fixed API, rather than letting the model choose URLs.
 
 ## docs/ syllabus
 

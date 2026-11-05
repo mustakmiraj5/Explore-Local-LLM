@@ -3,6 +3,7 @@ from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolPara
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import httpx
 import json
 import platform
 import os
@@ -64,6 +65,68 @@ def get_current_directory():
         "current_directory": os.getcwd()
     }
 
+# WMO weather codes used by Open-Meteo
+WEATHER_CODES = {
+    0: "clear sky", 1: "mainly clear", 2: "partly cloudy", 3: "overcast",
+    45: "fog", 48: "freezing fog",
+    51: "light drizzle", 53: "drizzle", 55: "heavy drizzle",
+    56: "freezing drizzle", 57: "heavy freezing drizzle",
+    61: "light rain", 63: "rain", 65: "heavy rain",
+    66: "freezing rain", 67: "heavy freezing rain",
+    71: "light snow", 73: "snow", 75: "heavy snow", 77: "snow grains",
+    80: "light rain showers", 81: "rain showers", 82: "violent rain showers",
+    85: "snow showers", 86: "heavy snow showers",
+    95: "thunderstorm", 96: "thunderstorm with hail", 99: "thunderstorm with heavy hail"
+}
+
+def get_weather(city: str = "Dhaka"):
+    # Open-Meteo's geocoder matches names only, so drop ", Country" if the model adds it
+    name = city.split(",")[0].strip()
+
+    with httpx.Client(timeout=10) as http:
+        places = http.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": name, "count": 1}
+        ).raise_for_status().json().get("results")
+
+        if not places:
+            raise ValueError(f"City not found: {city}")
+
+        place = places[0]
+
+        weather = http.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": place["latitude"],
+                "longitude": place["longitude"],
+                "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m",
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
+                "timezone": "auto",
+                "forecast_days": 1
+            }
+        ).raise_for_status().json()
+
+    current = weather["current"]
+    daily = weather["daily"]
+
+    return {
+        "location": f"{place['name']}, {place.get('country', '')}",
+        "local_time": current["time"],
+        "current": {
+            "condition": WEATHER_CODES.get(current["weather_code"], "unknown"),
+            "temperature_c": current["temperature_2m"],
+            "feels_like_c": current["apparent_temperature"],
+            "humidity_percent": current["relative_humidity_2m"],
+            "wind_kmh": current["wind_speed_10m"]
+        },
+        "today": {
+            "condition": WEATHER_CODES.get(daily["weather_code"][0], "unknown"),
+            "high_c": daily["temperature_2m_max"][0],
+            "low_c": daily["temperature_2m_min"][0],
+            "rain_chance_percent": daily["precipitation_probability_max"][0]
+        }
+    }
+
 # -------------------------
 # TOOL REGISTRY
 # -------------------------
@@ -71,7 +134,8 @@ def get_current_directory():
 AVAILABLE_FUNCTIONS = {
     "get_current_datetime": get_current_datetime,
     "get_system_info": get_system_info,
-    "get_current_directory": get_current_directory
+    "get_current_directory": get_current_directory,
+    "get_weather": get_weather
 }
 
 # -------------------------
@@ -111,6 +175,23 @@ TOOLS: list[ChatCompletionToolParam] = [
             "parameters": {
                 "type": "object",
                 "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather and today's forecast for a city. If the user doesn't name a city, use Dhaka.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "description": "City name, e.g. 'Dhaka' or 'London'."
+                    }
+                },
                 "required": []
             }
         }
