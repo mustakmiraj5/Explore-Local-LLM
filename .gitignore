@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Secrets
+.env
+.env.*
+
+# Local model files
+*.gguf
+*.safetensors
+*.bin
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
